@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 config.py
 penny_leads.db
+slickdeals_thread_cache.json
+slickdeals_rotation_state.json

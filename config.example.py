@@ -9,16 +9,21 @@ HTTP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 REQUEST_TIMEOUT_SECONDS = 20
 REQUEST_DELAY_SECONDS = 4.0  # politeness delay between thread fetches
 
-# Known Slickdeals forum threads dedicated to Home Depot in-store
-# clearance/penny finds -- found via a normal web search, not Slickdeals'
-# own search endpoint (that path -- /search* -- is disallowed in their
-# robots.txt; these direct thread URLs are not).
-SLICKDEALS_THREAD_URLS = [
-    "https://slickdeals.net/f/15635632-home-depot-clearance-deals-in-store-only-ymmv",
-    "https://slickdeals.net/f/7735565-dedicated-thread-home-depot-b-m-ymmv-clearances-xx-06-xx-03-1-cent-deals-and-other-significant-discounts",
-    "https://slickdeals.net/f/10387768-home-depot-yellow-clearance-tag-party-b-m-ymmv",
-    "https://slickdeals.net/f/15589936-ymmv-home-depot-clearance-vanity-light-fixtures-0-01-in-store-only",
-]
+# Slickdeals thread discovery is dynamic now, via slickdeals_discover.py's
+# sitemap-based search -- the original 4 hardcoded thread URLs here turned
+# out to be dead (no posts since January 2022) the first time anyone
+# actually checked their dates. Keep this as a manual seed list for any
+# specific threads worth always including regardless of what the sitemap
+# search turns up; empty is fine.
+SEED_THREAD_URLS: list[str] = []
+
+# How many discovered (+ seed) threads to actually fetch comments for per
+# collection run -- caps request volume the same way Penny3 caps its
+# category crawl, since the sitemap search alone can turn up hundreds of
+# matching threads. Rotates through the full candidate list across runs
+# (state in slickdeals_rotation_state.json) rather than always hitting the
+# same first N.
+SLICKDEALS_THREADS_PER_RUN = 20
 
 # Reddit access requires a real, registered/approved API app -- see
 # reddit_scraper.py's docstring for setup. Until these are filled in (in

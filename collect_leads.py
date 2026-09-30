@@ -14,17 +14,49 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import time
+from pathlib import Path
 
 import config
 from leads_db import get_conn, insert_lead
+from slickdeals_discover import discover_threads
 from slickdeals_scraper import fetch_thread_comments
+
+ROTATION_STATE_FILE = Path(__file__).parent / "slickdeals_rotation_state.json"
+
+
+def _candidate_threads() -> list[str]:
+    discovered = discover_threads()
+    # config.SEED_THREAD_URLS first (always included), then discovered
+    # threads not already in that list, so a manual seed never gets
+    # crowded out by rotation.
+    seen = set(config.SEED_THREAD_URLS)
+    return list(config.SEED_THREAD_URLS) + [u for u in discovered if u not in seen]
+
+
+def _next_chunk(candidates: list[str], chunk_size: int) -> list[str]:
+    total = len(candidates)
+    if total == 0:
+        return []
+    chunk_size = min(chunk_size, total)
+    try:
+        start = json.loads(ROTATION_STATE_FILE.read_text())["next_offset"] % total
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        start = 0
+    chunk = [candidates[(start + i) % total] for i in range(chunk_size)]
+    ROTATION_STATE_FILE.write_text(json.dumps({"next_offset": (start + chunk_size) % total}))
+    return chunk
 
 
 def run_slickdeals(conn) -> tuple[int, int]:
+    candidates = _candidate_threads()
+    urls = _next_chunk(candidates, config.SLICKDEALS_THREADS_PER_RUN)
+    print(f"{len(candidates)} candidate thread(s) known; fetching {len(urls)} this run.")
+
     seen = 0
     new = 0
-    for i, url in enumerate(config.SLICKDEALS_THREAD_URLS):
+    for i, url in enumerate(urls):
         print(f"Fetching {url} ...")
         try:
             comments = fetch_thread_comments(url)
@@ -40,7 +72,7 @@ def run_slickdeals(conn) -> tuple[int, int]:
                 thread_new += 1
         print(f"  {len(comments)} comment(s) seen, {thread_new} new.")
 
-        if i < len(config.SLICKDEALS_THREAD_URLS) - 1:
+        if i < len(urls) - 1:
             time.sleep(config.REQUEST_DELAY_SECONDS)
     return seen, new
 
